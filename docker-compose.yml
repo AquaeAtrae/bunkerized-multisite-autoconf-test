@@ -1,0 +1,137 @@
+version: '3'
+
+services:
+
+  mywww:
+    image: bunkerity/bunkerized-nginx
+    restart: always
+    depends_on:
+      - app1_wp
+    ports:
+      - 80:8080
+      - 443:8443
+    # bunkerized-nginx runs as an unprivileged user with UID/GID 101
+    # don't forget to edit the permissions of the files and folders accordingly
+    volumes:
+      - ./sites:/www:ro
+      - ./letsencrypt:/etc/letsencrypt
+      - ./sites/app1.localhost/server-confs:/server-confs:ro         # custom confs at server context for permalinks
+      - ./sites/app1.localhost/modsec-crs-confs:/modsec-crs-confs:ro # custom Core Rule Set confs to add WordPress exclusions
+      - ./sites/app1.localhost/modsec-confs:/modsec-confs:ro         # avoid some false positives with CRS
+    environment:
+      - SERVER_NAME=app1.localhost app2.localhost             # replace with your domain
+      - MULTISITE=yes
+      - AUTO_LETS_ENCRYPT=no
+      - REDIRECT_HTTP_TO_HTTPS=no
+      - DISABLE_DEFAULT_SERVER=yes
+      - MAX_CLIENT_SIZE=50m
+      - USE_CLIENT_CACHE=yes
+      - USE_GZIP=yes
+      - app1.localhost_ROOT_SITE_SUBFOLDER=wp-files
+      - app1.localhost_REMOTE_PHP=app1_wp
+      - app1.localhost_REMOTE_PHP_PATH=/var/www/html
+      - app1.localhost_CONTENT_SECURITY_POLICY=object-src ‘none’; frame-ancestors ‘self’; form-action ‘self’; block-all-mixed-content; sandbox allow-modals allow-forms allow-same-origin allow-scripts allow-popups allow-downloads; base-uri ‘self’;
+      #   ^ WordPress uses CSP allow-models pop-ups to confirm deleting Media, etc 
+      - app1.localhost_USE_WHITELIST_IP=yes
+      - app1.localhost_WHITELIST_IP_LIST=10.1.0.1  # [does not bypass modsecurity] either whitelist nginx docker ip within app1_net, or...  
+      #- app1.localhost_BLOCK_USER_AGENT=no   # WordPress REST API vs. https://github.com/JayBizzle/Crawler-Detect/blob/master/raw/Crawlers.txt#L1300 blocks "WordPress\/"
+      - app2.localhost_ROOT_SITE_SUBFOLDER=wp-files
+      - app2.localhost_REMOTE_PHP=app2_wp
+      - app2.localhost_REMOTE_PHP_PATH=/var/www/html
+      - app2.localhost_CONTENT_SECURITY_POLICY=object-src ‘none’; frame-ancestors ‘self’; form-action ‘self’; block-all-mixed-content; sandbox allow-modals allow-forms allow-same-origin allow-scripts allow-popups allow-downloads; base-uri ‘self’;
+      #   ^ WordPress uses CSP allow-models pop-ups to confirm deleting Media, etc 
+      - app2.localhost_USE_WHITELIST_IP=yes
+      - app2.localhost_WHITELIST_IP_LIST=10.1.0.1  # [does not bypass modsecurity] either whitelist nginx docker ip within app1_net, or...  
+      #- app2.localhost_BLOCK_USER_AGENT=no   # WordPress REST API vs. https://github.com/JayBizzle/Crawler-Detect/blob/master/raw/Crawlers.txt#L1300 blocks "WordPress\/"
+    networks:
+      - app1_net
+
+  app1_wp:
+    image: wordpress:fpm-alpine
+    restart: always
+    extra_hosts:
+      - "app1.localhost:10.1.0.1"    # replace with your website, referencing nginx service to allow WordPress Site Health Status to cUrl own API from isolated php-fpm service
+    secrets:
+      - APP1_DB_PASSWORD
+    volumes:
+      - ./sites/app1.localhost/wp-files:/var/www/html
+      - ./sites/app1.localhost/php-custom.d/opcache-recommended.ini:/usr/local/etc/php/conf.d/opcache-recommended.ini:ro  # recommended for production only, caches all php files
+      - ./sites/app1.localhost/php-custom.d/uploads.ini:/usr/local/etc/php/conf.d/uploads.ini:ro
+    environment:
+      - WORDPRESS_DB_HOST=app1_db
+      - WORDPRESS_DB_NAME=wp
+      - WORDPRESS_DB_USER=user
+      #- WORDPRESS_DB_PASSWORD=db-user-pwd       # replace with a stronger password (must match MYSQL_PASSWORD) here or within...
+      - WORDPRESS_DB_PASSWORD_FILE=/run/secrets/APP1_DB_PASSWORD
+      - WORDPRESS_TABLE_PREFIX=prefix_          # best practice : replace with a random prefix
+    networks:
+      - app1_net
+
+  app1_db:
+    image: mariadb
+    restart: always
+    secrets:
+      - APP1_DB_PASSWORD
+    volumes:
+      - ./sites/app1.localhost/db-data:/var/lib/mysql
+    environment:
+      #- MYSQL_ROOT_PASSWORD=db-root-pwd         # replace with a stronger password, or randomize with...
+      - MYSQL_RANDOM_ROOT_PASSWORD=1
+      - MYSQL_DATABASE=wp
+      - MYSQL_USER=user
+      #- MYSQL_PASSWORD=db-user-pwd              # replace with a stronger password (must match WORDPRESS_DB_PASSWORD) here or within...
+      - MYSQL_PASSWORD_FILE=/run/secrets/APP1_DB_PASSWORD
+    networks:
+      - app1_net
+
+  app2_wp:
+    image: wordpress:fpm-alpine
+    restart: always
+    extra_hosts:
+      - "app2.localhost:10.1.0.1"    # replace with your website, referencing nginx service to allow WordPress Site Health Status to cUrl own API from isolated php-fpm service
+    secrets:
+      - APP2_DB_PASSWORD
+    volumes:
+      - ./sites/app2.localhost/wp-files:/var/www/html
+      - ./sites/app2.localhost/php-custom.d/opcache-recommended.ini:/usr/local/etc/php/conf.d/opcache-recommended.ini:ro  # recommended for production only, caches all php files
+      - ./sites/app2.localhost/php-custom.d/uploads.ini:/usr/local/etc/php/conf.d/uploads.ini:ro
+    environment:
+      - WORDPRESS_DB_HOST=app2_db
+      - WORDPRESS_DB_NAME=wp
+      - WORDPRESS_DB_USER=user
+      #- WORDPRESS_DB_PASSWORD=db-user-pwd       # replace with a stronger password (must match MYSQL_PASSWORD) here or within...
+      - WORDPRESS_DB_PASSWORD_FILE=/run/secrets/APP2_DB_PASSWORD
+      - WORDPRESS_TABLE_PREFIX=prefix_          # best practice : replace with a random prefix
+    networks:
+      - app1_net
+
+  app2_db:
+    image: mariadb
+    restart: always
+    secrets:
+      - APP2_DB_PASSWORD
+    volumes:
+      - ./sites/app2.localhost/db-data:/var/lib/mysql
+    environment:
+      #- MYSQL_ROOT_PASSWORD=db-root-pwd         # replace with a stronger password, or randomize with...
+      - MYSQL_RANDOM_ROOT_PASSWORD=1
+      - MYSQL_DATABASE=wp
+      - MYSQL_USER=user
+      #- MYSQL_PASSWORD=db-user-pwd              # replace with a stronger password (must match WORDPRESS_DB_PASSWORD) here or within...
+      - MYSQL_PASSWORD_FILE=/run/secrets/APP2_DB_PASSWORD
+    networks:
+      - app1_net
+
+secrets:
+  APP1_DB_PASSWORD:
+    file: ./sites/app1.localhost/APP1_DB_PASSWORD.secret
+  APP2_DB_PASSWORD:
+    file: ./sites/app2.localhost/APP2_DB_PASSWORD.secret
+
+networks:
+  app1_net:
+    driver: bridge
+    ipam:
+      config:   # subnet defined for php-fpm extra_hosts
+        - subnet: 10.1.0.0/16
+          gateway: 10.1.0.1

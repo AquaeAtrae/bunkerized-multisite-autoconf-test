@@ -1,0 +1,5 @@
+letsencrypt/
+sites/app1.localhost/wp-files/
+sites/app1.localhost/db-data/
+sites/app2.localhost/wp-files/
+sites/app2.localhost/db-data/
