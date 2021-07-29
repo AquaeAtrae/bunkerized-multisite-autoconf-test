@@ -43,6 +43,11 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - autoconf:/etc/nginx
+      # also add modsec-confs and modsec-crs-confs to autoconf to make "is_custom_conf" working inside the autoconf container
+      - ./sites/app1.localhost/modsec-crs-confs:/modsec-crs-confs/app1.localhost:ro
+      - ./sites/app1.localhost/modsec-confs:/modsec-confs/app1.localhost:ro
+      - ./sites/app2.localhost/modsec-crs-confs:/modsec-crs-confs/app2.localhost:ro
+      - ./sites/app2.localhost/modsec-confs:/modsec-confs/app2.localhost:ro
     depends_on:
       - mywww
       - app1_wp
