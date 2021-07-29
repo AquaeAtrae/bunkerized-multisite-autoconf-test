@@ -48,6 +48,7 @@ services:
       #- app2.localhost_BLOCK_USER_AGENT=no   # WordPress REST API vs. https://github.com/JayBizzle/Crawler-Detect/blob/master/raw/Crawlers.txt#L1300 blocks "WordPress\/"
     networks:
       - app1_net
+      - app2_net
 
   app1_wp:
     image: wordpress:fpm-alpine
@@ -106,7 +107,7 @@ services:
       - WORDPRESS_DB_PASSWORD_FILE=/run/secrets/APP2_DB_PASSWORD
       - WORDPRESS_TABLE_PREFIX=prefix_          # best practice : replace with a random prefix
     networks:
-      - app1_net
+      - app2_net
 
   app2_db:
     image: mariadb
@@ -123,7 +124,7 @@ services:
       #- MYSQL_PASSWORD=db-user-pwd              # replace with a stronger password (must match WORDPRESS_DB_PASSWORD) here or within...
       - MYSQL_PASSWORD_FILE=/run/secrets/APP2_DB_PASSWORD
     networks:
-      - app1_net
+      - app2_net
 
 secrets:
   APP1_DB_PASSWORD:
@@ -138,3 +139,9 @@ networks:
       config:   # subnet defined for php-fpm extra_hosts
         - subnet: 10.1.0.0/16
           gateway: 10.1.0.1
+  app2_net:
+    driver: bridge
+    ipam:
+      config:   # subnet defined for php-fpm extra_hosts
+        - subnet: 10.2.0.0/16
+          gateway: 10.2.0.1
