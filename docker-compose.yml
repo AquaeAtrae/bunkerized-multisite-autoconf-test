@@ -15,9 +15,12 @@ services:
     volumes:
       - ./sites:/www:ro
       - ./letsencrypt:/etc/letsencrypt
-      - ./sites/app1.localhost/server-confs:/server-confs:ro         # custom confs at server context for permalinks
-      - ./sites/app1.localhost/modsec-crs-confs:/modsec-crs-confs:ro # custom Core Rule Set confs to add WordPress exclusions
-      - ./sites/app1.localhost/modsec-confs:/modsec-confs:ro         # avoid some false positives with CRS
+      - ./sites/app1.localhost/server-confs:/server-confs/app1.localhost:ro         # custom confs at server context for permalinks
+      - ./sites/app1.localhost/modsec-crs-confs:/modsec-crs-confs/app1.localhost:ro # custom Core Rule Set confs to add WordPress exclusions
+      - ./sites/app1.localhost/modsec-confs:/modsec-confs/app1.localhost:ro         # avoid some false positives with CRS
+      - ./sites/app2.localhost/server-confs:/server-confs/app2.localhost:ro         # custom confs at server context for permalinks
+      - ./sites/app2.localhost/modsec-crs-confs:/modsec-crs-confs/app2.localhost:ro # custom Core Rule Set confs to add WordPress exclusions
+      - ./sites/app2.localhost/modsec-confs:/modsec-confs/app2.localhost:ro         # avoid some false positives with CRS
     environment:
       - SERVER_NAME=app1.localhost app2.localhost             # replace with your domain
       - MULTISITE=yes
