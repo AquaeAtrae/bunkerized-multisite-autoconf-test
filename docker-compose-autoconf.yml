@@ -67,7 +67,6 @@ services:
       - WORDPRESS_DB_PASSWORD_FILE=/run/secrets/APP1_DB_PASSWORD
       - WORDPRESS_TABLE_PREFIX=prefix_          # best practice : replace with a random prefix
     labels:
-      - "bunkerized-nginx.MULTISITE=yes"
       - "bunkerized-nginx.SERVER_NAME=app1.localhost"
       - "bunkerized-nginx.USE_MODSECURITY=no"       # TESTING disabled to show functional Site Health Status
       - "bunkerized-nginx.USE_MODSECURITY_CRS=no"
@@ -118,7 +117,6 @@ services:
       - WORDPRESS_DB_PASSWORD_FILE=/run/secrets/APP2_DB_PASSWORD
       - WORDPRESS_TABLE_PREFIX=prefix_          # best practice : replace with a random prefix
     labels:
-      - "bunkerized-nginx.MULTISITE=yes"
       - "bunkerized-nginx.SERVER_NAME=app2.localhost"
       - "bunkerized-nginx.USE_MODSECURITY=yes"        # TESTING FAILS enabled with customm modsecurity rules injected into mywww above
       - "bunkerized-nginx.USE_MODSECURITY_CRS=yes"
