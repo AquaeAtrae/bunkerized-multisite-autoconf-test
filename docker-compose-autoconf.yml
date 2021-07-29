@@ -21,8 +21,9 @@ services:
       - ./sites/app2.localhost/server-confs:/server-confs/app2.localhost:ro         # custom confs at server context for permalinks
       - ./sites/app2.localhost/modsec-crs-confs:/modsec-crs-confs/app2.localhost:ro # custom Core Rule Set confs to add WordPress exclusions
       - ./sites/app2.localhost/modsec-confs:/modsec-confs/app2.localhost:ro         # avoid some false positives with CRS
+      - autoconf:/etc/nginx
     environment:
-      - SERVER_NAME=app1.localhost app2.localhost             # replace with your domain
+      - SERVER_NAME=
       - MULTISITE=yes
       - AUTO_LETS_ENCRYPT=no
       - REDIRECT_HTTP_TO_HTTPS=no
@@ -30,25 +31,22 @@ services:
       - MAX_CLIENT_SIZE=50m
       - USE_CLIENT_CACHE=yes
       - USE_GZIP=yes
-      - app1.localhost_ROOT_SITE_SUBFOLDER=wp-files
-      - app1.localhost_REMOTE_PHP=app1_wp
-      - app1.localhost_REMOTE_PHP_PATH=/var/www/html
-      - app1.localhost_CONTENT_SECURITY_POLICY=object-src ‘none’; frame-ancestors ‘self’; form-action ‘self’; block-all-mixed-content; sandbox allow-modals allow-forms allow-same-origin allow-scripts allow-popups allow-downloads; base-uri ‘self’;
-      #   ^ WordPress uses CSP allow-models pop-ups to confirm deleting Media, etc 
-      - app1.localhost_USE_WHITELIST_IP=yes
-      - app1.localhost_WHITELIST_IP_LIST=10.1.0.1  # [does not bypass modsecurity] either whitelist nginx docker ip within app1_net, or...  
-      #- app1.localhost_BLOCK_USER_AGENT=no   # WordPress REST API vs. https://github.com/JayBizzle/Crawler-Detect/blob/master/raw/Crawlers.txt#L1300 blocks "WordPress\/"
-      - app2.localhost_ROOT_SITE_SUBFOLDER=wp-files
-      - app2.localhost_REMOTE_PHP=app2_wp
-      - app2.localhost_REMOTE_PHP_PATH=/var/www/html
-      - app2.localhost_CONTENT_SECURITY_POLICY=object-src ‘none’; frame-ancestors ‘self’; form-action ‘self’; block-all-mixed-content; sandbox allow-modals allow-forms allow-same-origin allow-scripts allow-popups allow-downloads; base-uri ‘self’;
-      #   ^ WordPress uses CSP allow-models pop-ups to confirm deleting Media, etc 
-      - app2.localhost_USE_WHITELIST_IP=yes
-      - app2.localhost_WHITELIST_IP_LIST=10.1.0.1  # [does not bypass modsecurity] either whitelist nginx docker ip within app1_net, or...  
-      #- app2.localhost_BLOCK_USER_AGENT=no   # WordPress REST API vs. https://github.com/JayBizzle/Crawler-Detect/blob/master/raw/Crawlers.txt#L1300 blocks "WordPress\/"
+    labels:
+      - "bunkerized-nginx.AUTOCONF"
     networks:
       - app1_net
       - app2_net
+
+  myautoconf:
+    image: bunkerity/bunkerized-nginx-autoconf
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - autoconf:/etc/nginx
+    depends_on:
+      - mywww
+      - app1_wp
+      - app2_wp
 
   app1_wp:
     image: wordpress:fpm-alpine
@@ -68,6 +66,19 @@ services:
       #- WORDPRESS_DB_PASSWORD=db-user-pwd       # replace with a stronger password (must match MYSQL_PASSWORD) here or within...
       - WORDPRESS_DB_PASSWORD_FILE=/run/secrets/APP1_DB_PASSWORD
       - WORDPRESS_TABLE_PREFIX=prefix_          # best practice : replace with a random prefix
+    labels:
+      - "bunkerized-nginx.MULTISITE=yes"
+      - "bunkerized-nginx.SERVER_NAME=app1.localhost"
+      - "bunkerized-nginx.USE_MODSECURITY=no"       # TESTING disabled to show functional Site Health Status
+      - "bunkerized-nginx.USE_MODSECURITY_CRS=no"
+      - "bunkerized-nginx.ROOT_SITE_SUBFOLDER=wp-files"
+      - "bunkerized-nginx.REMOTE_PHP=app1_wp"
+      - "bunkerized-nginx.REMOTE_PHP_PATH=/var/www/html"
+      - "bunkerized-nginx.CONTENT_SECURITY_POLICY=object-src ‘none’; frame-ancestors ‘self’; form-action ‘self’; block-all-mixed-content; sandbox allow-modals allow-forms allow-same-origin allow-scripts allow-popups allow-downloads; base-uri ‘self’;"
+      #   ^ WordPress uses CSP allow-models pop-ups to confirm deleting Media, etc 
+      - "bunkerized-nginx.USE_WHITELIST_IP=yes"
+      - "bunkerized-nginx.WHITELIST_IP_LIST=10.1.0.1"  # [does not bypass modsecurity] either whitelist nginx docker ip within app1_net, or...  
+      #- "bunkerized-nginx.BLOCK_USER_AGENT=no"   # WordPress REST API vs. https://github.com/JayBizzle/Crawler-Detect/blob/master/raw/Crawlers.txt#L1300 blocks "WordPress\/"
     networks:
       - app1_net
 
@@ -106,6 +117,19 @@ services:
       #- WORDPRESS_DB_PASSWORD=db-user-pwd       # replace with a stronger password (must match MYSQL_PASSWORD) here or within...
       - WORDPRESS_DB_PASSWORD_FILE=/run/secrets/APP2_DB_PASSWORD
       - WORDPRESS_TABLE_PREFIX=prefix_          # best practice : replace with a random prefix
+    labels:
+      - "bunkerized-nginx.MULTISITE=yes"
+      - "bunkerized-nginx.SERVER_NAME=app2.localhost"
+      - "bunkerized-nginx.USE_MODSECURITY=yes"        # TESTING FAILS enabled with customm modsecurity rules injected into mywww above
+      - "bunkerized-nginx.USE_MODSECURITY_CRS=yes"
+      - "bunkerized-nginx.ROOT_SITE_SUBFOLDER=wp-files"
+      - "bunkerized-nginx.REMOTE_PHP=app2_wp"
+      - "bunkerized-nginx.REMOTE_PHP_PATH=/var/www/html"
+      - "bunkerized-nginx.CONTENT_SECURITY_POLICY=object-src ‘none’; frame-ancestors ‘self’; form-action ‘self’; block-all-mixed-content; sandbox allow-modals allow-forms allow-same-origin allow-scripts allow-popups allow-downloads; base-uri ‘self’;"
+      #   ^ WordPress uses CSP allow-models pop-ups to confirm deleting Media, etc 
+      - "bunkerized-nginx.USE_WHITELIST_IP=yes"
+      - "bunkerized-nginx.WHITELIST_IP_LIST=10.1.0.1"  # [does not bypass modsecurity] either whitelist nginx docker ip within app1_net, or...  
+      #- "bunkerized-nginx.BLOCK_USER_AGENT=no"   # WordPress REST API vs. https://github.com/JayBizzle/Crawler-Detect/blob/master/raw/Crawlers.txt#L1300 blocks "WordPress\/"
     networks:
       - app2_net
 
@@ -131,6 +155,9 @@ secrets:
     file: ./sites/app1.localhost/APP1_DB_PASSWORD.secret
   APP2_DB_PASSWORD:
     file: ./sites/app2.localhost/APP2_DB_PASSWORD.secret
+
+volumes:
+  autoconf:
 
 networks:
   app1_net:
